@@ -119,3 +119,9 @@ USE_TZ = True
 STATIC_URL = '/static/'
 
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static",)]
+
+EMAIL_USE_TLS = True
+EMAIL_HOST = 'smtp.yandex.ru' #Например, smtp.gmail.com
+EMAIL_HOST_USER = 'bigcaches@ya.ru' #Например, user@gmail.com. Именно его необходимо указывать как ВАШ_EMAIL_ДЛЯ_ОТПРАВКИ_СООБЩЕНИЯ в исходн
+EMAIL_HOST_PASSWORD = 'Dope1xost12'
+
