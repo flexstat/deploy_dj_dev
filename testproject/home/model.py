@@ -15,7 +15,7 @@ def parse_args():
 	parser.add_argument('-o', '--output', type=str, help="Output file.")
 	return parser.parse_args()
 
-def banner():
+def banner(): # для передачи параметра из формы в переменную нужно сделать : target = forms.cleaned_data['target'] ? 
 	global version
 	b = '''
           ____ _____ _____ ____  
@@ -30,7 +30,7 @@ def banner():
 	print(b)
 	
 def clear_url(target):
-	return re.sub('.*www\.','',target,1).split('/')[0].strip()
+	return re.sub('.*www\.','',target,1).split('/')[0].strip() # target передает домен 
 
 def save_subdomains(subdomain,output_file):
 	with open(output_file,"a") as f:
