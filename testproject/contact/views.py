@@ -1,26 +1,19 @@
 from django import forms
 
-MY_CHOICES = (
-    ('1', 'sub.'),
-    ('2', 'sub.sub.'),
-    ('3', 'sub.sub.sub'),
-)
-
 
 class ContactForm(forms.Form):
-    #subject = forms.CharField(max_length = 100)
-    #sender = forms.EmailField()
-    #message = forms.CharField()
-    #copy = forms.BooleanField(required = False)
-    ipadres = forms.ChoiceField(choices=MY_CHOICES)
+    subject = forms.CharField(max_length = 100)
+    sender = forms.EmailField()
     message = forms.CharField()
+    copy = forms.BooleanField(required = False)
+
 
 
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.core.mail import send_mail, BadHeaderError
 
-def home(request):
+def contact(request):
 	if request.method == 'POST':
 		form = ContactForm(request.POST)
 		#Если форма заполнена корректно, сохраняем все введённые пользователем значения
@@ -29,7 +22,6 @@ def home(request):
 			sender = form.cleaned_data['sender']
 			message = form.cleaned_data['message']
 			copy = form.cleaned_data['copy']
-                        #ipadres = forms.cleaned_data['ipadres']
 			recipients = ['bigcaches@ya.ru']
 			#Если пользователь захотел получить копию себе, добавляем его в список получателей
 			if copy:
@@ -44,7 +36,7 @@ def home(request):
 		#Заполняем форму
 		form = ContactForm()
 	#Отправляем форму на страницу
-	return render(request, 'home/index.html', {'form': form})
+	return render(request, 'contact/contact.html', {'form': form})
 
 
 
