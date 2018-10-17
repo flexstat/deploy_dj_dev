@@ -14,11 +14,15 @@
 	</div>
 	<div>
 	  <label for="id_message">Домен:</label>
-	  {{ form.message.errors }}
-	  {{ form.message }}
+	  {{ form.domain_tar.errors }}
+	  {{ form.domain_tar }}
 	</div>
 	<div>
 	  {{ form.copy.errors }}
 	</div>
 	<input type="submit" value="Отправить"/>
+
+<div>
+	 {{ form.work_done }}
+</div>
 </form>

@@ -1,4 +1,10 @@
+
+
+
 from django import forms
+
+import re
+import json
 
 MY_CHOICES = (
     ('1', 'sub.'),
@@ -8,19 +14,61 @@ MY_CHOICES = (
 
 
 class ContactForm(forms.Form):
-    #subject = forms.CharField(max_length = 100)
-    #sender = forms.EmailField()
-    #message = forms.CharField()
-    #copy = forms.BooleanField(required = False)
+
     ipadres = forms.ChoiceField(choices=MY_CHOICES)
-    message = forms.CharField()
+    domain_tar = forms.CharField()
+    work_done = forms.CharField(required=False,disabled=True)
+
 
 
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.core.mail import send_mail, BadHeaderError
 
+
+def clear_url(target):
+	return re.sub('.*www\.','',target,1).split('/')[0].strip() # target передает домен 
+
+def save_subdomains(subdomain,output_file):
+	with open(output_file,"a") as f:
+		f.write(subdomain + '\n')
+		f.close()
+
+def main():
+	
+	#banner()
+	#args = parse_args()
+
+	subdomains = []
+	target = clear_url(domain_tar.domain)
+	output = domain_tar.output
+
+	req = requests.get("https://crt.sh/?q=%.{d}&output=json".format(d=target))
+
+	if req.status_code != 200:
+		print("[X] Information not available!") 
+		exit(1)
+
+	json_data = json.loads('[{}]'.format(req.text.replace('}{', '},{')))
+
+	for (key,value) in enumerate(json_data):
+		subdomains.append(value['name_value'])
+
+	
+	# print("\n[!] ---- TARGET: {d} ---- [!] \n".format(d=target))
+
+	subdomains = sorted(set(subdomains))
+
+	for subdomain in subdomains:
+#		print("[-]  {s}".format(s=subdomain))
+		if output is not None:
+			save_subdomains(subdomain,output)
+
+ #  print("\n\n[!]  Done. Have a nice day! ;).")
+
+
 def home(request):
+
 	if request.method == 'POST':
 		form = ContactForm(request.POST)
 		#Если форма заполнена корректно, сохраняем все введённые пользователем значения
