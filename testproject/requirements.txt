@@ -3,3 +3,4 @@ dj-database-url
 psycopg2
 argparse
 psycopg2-binary
+requests
