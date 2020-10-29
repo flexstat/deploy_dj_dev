@@ -1,0 +1,327 @@
+/**
+ * validate_form_data()
+ * Проверка формы соответствию триггерам
+ *
+ * @return array - модифицированный массив шаблона элементов формы
+ * @param array $a_post - массив из $_POST
+ * @param array $a_form_data - массив шаблона элементов формы
+ * @global $simage - класс securityimage
+ */
+function validate_form_data($a_post = array(), $a_form_data) {
+	global $simage, $staticpages;
+
+	$predefined_submit_text = isset($a_form_data['fields']['submit']['value'])
+		? $a_form_data['fields']['submit']['value']
+		: isset($a_form_data['submit_id'])
+			? isset($a_form_data['fields'][$a_form_data['submit_id']]['value']) ? $a_form_data['fields'][$a_form_data['submit_id']]['value'] : ''
+			: '';
+
+	foreach ($a_form_data['fields'] as $form_key => $form_item):
+		if ($form_key):
+			if (
+				isset($a_post[$form_key])
+				&&
+				is_string($a_post[$form_key])
+			):
+				$a_post[$form_key] = checkslashes($a_post[$form_key]);
+			endif;
+
+			if (
+				isset($a_post[$form_key])
+			):
+				$a_form_data['fields'][$form_key]['value'] = $a_post[$form_key];
+			endif;
+
+			// основные процедуры обработки значений полей
+			switch ($a_form_data['fields'][$form_key]['type']) {
+				case 'calendar':
+				case 'human_calendar':
+					$calendar_value = $a_form_data['fields'][$form_key]['value'];
+					if (is_array($calendar_value)):
+						$a_form_data['fields'][$form_key]['value'] = date("Y-m-d H:i:s", mktime(
+							((isset($calendar_value['Time_Hour']))   ? $calendar_value['Time_Hour']   : strftime('%H')),
+							((isset($calendar_value['Time_Minute'])) ? $calendar_value['Time_Minute'] : strftime('%M')),
+							0,
+							((isset($calendar_value['Date_Month']))  ? $calendar_value['Date_Month']  : strftime('%m')),
+							((isset($calendar_value['Date_Day']))    ? $calendar_value['Date_Day']    : strftime('%d')),
+							((isset($calendar_value['Date_Year']))   ? $calendar_value['Date_Year']   : strftime('%Y'))
+						));
+					endif;
+				break;
+
+				default:
+				break;
+			}
+
+			// проверка тригеров
+			if (
+				isset($form_item['triggers'])
+				&&
+				is_array($form_item['triggers'])
+			):
+				foreach ($form_item['triggers'] as $trigger_key => $trigger_item):
+					if (
+						"require" == $trigger_key
+						&&
+						(
+							TRUE == $trigger_item['value']
+							&&
+							empty($a_post[$form_key])
+						)
+					):
+						// проверка на обязательность заполнения поля
+						$a_form_data['form_error'] = TRUE;
+						if (empty($a_form_data['fields'][$form_key]['error'])) $a_form_data['fields'][$form_key]['error'][$trigger_key] = $trigger_item['warning'];
+					endif;
+
+					if (
+						!empty($a_post[$form_key])
+						&&
+						"preg" == $trigger_key
+						&&
+						!preg_match($trigger_item['value'], $a_post[$form_key])
+					):
+						// проверка соответствия регулярному выражению
+						$a_form_data['form_error'] = TRUE;
+						if (empty($a_form_data['fields'][$form_key]['error'])) $a_form_data['fields'][$form_key]['error'][$trigger_key] = $trigger_item['warning'];
+					endif;
+
+					if (
+						"int" == $trigger_key
+						&&
+						!intval($a_post[$form_key])
+					):
+						// проверка чтобы вводимое значение было целым числом
+						$a_form_data['form_error'] = TRUE;
+						if (empty($a_form_data['fields'][$form_key]['error'])) $a_form_data['fields'][$form_key]['error'][$trigger_key] = $trigger_item['warning'];
+					endif;
+
+					if (
+						!empty($a_post[$form_key])
+						&&
+						"mxhost" == $trigger_key
+						&&
+						@list($name, $domain) = explode("@", $a_post[$form_key])
+					):
+						if (
+							function_exists("getmxrr")
+							&&
+							$domain
+							&&
+							!@getmxrr($domain, $mxhosts)
+						):
+							// проверка наличия MX записи в хосте указанного емайл
+							$a_form_data['form_error'] = TRUE;
+							if (empty($a_form_data['fields'][$form_key]['error'])) $a_form_data['fields'][$form_key]['error'][$trigger_key] = $trigger_item['warning'];
+						endif;
+					endif;
+
+					if (
+						"min" == $trigger_key
+						&&
+						strlen($a_post[$form_key]) <= $trigger_item['value']
+					):
+						// проверка на минимальное количество символов
+						$a_form_data['form_error'] = TRUE;
+						if (empty($a_form_data['fields'][$form_key]['error'])) $a_form_data['fields'][$form_key]['error'][$trigger_key] = $trigger_item['warning'];
+					endif;
+
+					if (
+						"max" == $trigger_key
+						&&
+						strlen($a_post[$form_key]) >= $trigger_item['value']
+					):
+						// проверка на максимальное количество символов
+						$a_form_data['form_error'] = TRUE;
+						if (empty($a_form_data['fields'][$form_key]['error'])) $a_form_data['fields'][$form_key]['error'][$trigger_key] = $trigger_item['warning'];
+					endif;
+
+					if (
+						"equalent" == $trigger_key
+						&&
+						$a_post[$form_key] != $a_post[$trigger_item['value']]
+					):
+						// проверка соответствия введеного значения значению поля в value
+						$a_form_data['form_error'] = TRUE;
+						if (empty($a_form_data['fields'][$form_key]['error'])) $a_form_data['fields'][$form_key]['error'][$trigger_key] = $trigger_item['warning'];
+					endif;
+
+					if (
+						"scode" == $trigger_key
+						&&
+						!$simage->CheckCode($a_post[$form_key])
+					):
+						// проверка кода с картинки
+						$a_form_data['form_error'] = TRUE;
+						if (empty($a_form_data['fields'][$form_key]['error'])) $a_form_data['fields'][$form_key]['error'][$trigger_key] = $trigger_item['warning'];
+					endif;
+
+					if (
+						"forget" == $trigger_key
+					):
+						// стереть введёное значение
+						$a_form_data['fields'][$form_key]['value'] = "";
+					endif;
+
+					if (
+						"require_file" == $trigger_key
+						&&
+						(
+							(
+								"string" == gettype($_FILES[$form_key]['name'])
+								&&
+								empty($_FILES[$form_key]['name'])
+							)
+							||
+							(
+								"array" == gettype($_FILES[$form_key]['name'])
+								&&
+								empty($_FILES[$form_key]['name'][0])
+							)
+						)
+					):
+						// проверка на обязательный выбранный файл для загрузки
+						// не проверяет на наличие ошибок загрузки и 0 длину
+						// использовать вместе с модификатором "file"
+						// приоритет -1
+						$a_form_data['form_error'] = TRUE;
+						if (empty($a_form_data['fields'][$form_key]['error'])) $a_form_data['fields'][$form_key]['error'][$trigger_key] = $trigger_item['warning'];
+					endif;
+
+					if (
+						"file" == $trigger_key
+						&&
+						(
+							isset($_FILES[$form_key])
+							&&
+							"string" == gettype($_FILES[$form_key]['name'])
+							&&
+							!empty($_FILES[$form_key]['name'])
+						)
+						||
+						(
+							isset($_FILES[$form_key])
+							&&
+							"array" == gettype($_FILES[$form_key]['name'])
+							&&
+							!empty($_FILES[$form_key]['name'][0])
+						)
+					):
+						// проверяет на наличие ошибок загрузки и 0 длину файла
+						// приоритет 0
+						if (
+							is_array($_FILES[$form_key]['error'])
+						):
+							foreach ($_FILES[$form_key]['error'] as $key => $value):
+								if (
+									0 == $_FILES[$form_key]['error'][$key]
+									&&
+									0 < $_FILES[$form_key]['size'][$key]
+								)
+									$correct_loaded_file = TRUE;
+							endforeach;
+
+							if (
+								!isset($correct_loaded_file)
+							):
+								$a_form_data['form_error'] = TRUE;
+								if (empty($a_form_data['fields'][$form_key]['error'])) $a_form_data['fields'][$form_key]['error'][$trigger_key] = $trigger_item['warning'];
+							endif;
+
+						else:
+							if (
+								0 != $_FILES[$form_key]['error']
+								||
+								0 >= $_FILES[$form_key]['size']
+							):
+								$a_form_data['form_error'] = TRUE;
+								if (empty($a_form_data['fields'][$form_key]['error'])) $a_form_data['fields'][$form_key]['error'][$trigger_key] = $trigger_item['warning'];
+							endif;
+						endif;
+					endif;
+
+					if (
+						"graphics_file" == $trigger_key
+						&&
+						(
+							isset($_FILES[$form_key])
+							&&
+							"string" == gettype($_FILES[$form_key]['type'])
+							&&
+							!empty($_FILES[$form_key]['type'])
+						)
+						||
+						(
+							isset($_FILES[$form_key])
+							&&
+							"array" == gettype($_FILES[$form_key]['type'])
+							&&
+							!empty($_FILES[$form_key]['type'][0])
+						)
+					):
+						// проверить тип графического файла
+						// использовать вместе с модификатором "file"
+						// приоритет +1
+						if (
+							is_array($_FILES[$form_key]['type'])
+						):
+							foreach ($_FILES[$form_key]['type'] as $key => $value):
+								if (
+									"" != checkPicType($_FILES[$form_key]['type'][$key])
+								)
+									$correct_file_type = TRUE;
+								endforeach;
+
+								if (
+									!isset($correct_file_type)
+								):
+									$a_form_data['form_error'] = TRUE;
+									if (empty($a_form_data['fields'][$form_key]['error'])) $a_form_data['fields'][$form_key]['error'][$trigger_key] = $trigger_item['warning'];
+								endif;
+
+						else:
+							if (
+								"" == checkPicType($_FILES[$form_key]['type'])
+							):
+								$a_form_data['form_error'] = TRUE;
+								if (empty($a_form_data['fields'][$form_key]['error'])) $a_form_data['fields'][$form_key]['error'][$trigger_key] = $trigger_item['warning'];
+							endif;
+						endif;
+					endif;
+
+					if (
+						"text_file" == $trigger_key
+					):
+						// проверить тип текстового файла
+						if (
+							isset($_FILES[$form_key])
+							&&
+							!empty($_FILES[$form_key]['name'])
+						):
+							if (
+								"" == checkTextType($_FILES[$form_key]['type'])
+							):
+								$a_form_data['form_error'] = TRUE;
+								if (empty($a_form_data['fields'][$form_key]['error'])) $a_form_data['fields'][$form_key]['error'][$trigger_key] = $trigger_item['warning'];
+							endif;
+						endif;
+					endif;
+
+				endforeach;
+			endif;
+
+		else:
+			$a_form_data['fields'][$form_key] = validate_form_data($a_post, $a_form_data['fields'][$form_key]);
+		endif;
+	endforeach;
+
+	if ($predefined_submit_text):
+		if (isset($a_form_data['fields']['submit'])):
+			$a_form_data['fields']['submit']['value'] = $predefined_submit_text;
+		else:
+			$a_form_data['fields'][$a_form_data['submit_id']]['value'] = $predefined_submit_text;
+		endif;
+	endif;
+
+	return $a_form_data;
+}
